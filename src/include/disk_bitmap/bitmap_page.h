@@ -1,10 +1,9 @@
 #pragma once
 
+#include "common/consts.h"
 #include "disk_page/page.h"
 
 namespace hybridfs {
-
-static const int NUM_PAGES_IN_BITMAP = 32768;
 
 class BitmapPage: public Page {
 public:

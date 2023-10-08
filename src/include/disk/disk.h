@@ -1,8 +1,5 @@
 #pragma once
 
-#include <fcntl.h>
-#include <iostream>
-#include <unistd.h>
 #include <list>
 #include <unordered_map>
 #include <mutex>
@@ -18,7 +15,7 @@ namespace hybridfs {
 
 class Disk {
 public:
-    explicit Disk(size_t offset, size_t page_num) {
+    Disk(size_t offset, size_t page_num) {
         offset_ = offset;
         page_num_ = page_num;
         fd_ = open(METADATA_DISK.c_str(), O_RDWR);
@@ -53,36 +50,51 @@ public:
 
     Page* ReadPage(size_t page_id) {
         if (ENABLED_DISK_BUFFER) {
+            std::lock_guard<std::mutex> lock(buffer_mtx_);
             Page* page = Get(page_id);
             if (page != nullptr) {
+                page->SetUsed(true);
                 return page;
             }
             page = new Page();
-            off_t offset = page_id * PAGE_SIZE;
-            if (lseek(fd_, offset, SEEK_SET) == -1) {
+            off_t off = (page_id + offset_) * PAGE_SIZE;
+            if (lseek(fd_, off, SEEK_SET) == -1) {
                 LogError("lseek error");
             }
             if (read(fd_, page->GetData(), PAGE_SIZE) == -1) {
                 LogError("read error");
             }
             Put(page_id, page);
+            page->SetUsed(true);
             return page;
         } else {
             Page* page = new Page();
             off_t off = (page_id + offset_) * PAGE_SIZE;
-            lseek(fd_, off, SEEK_SET);
-            read(fd_, page->GetData(), PAGE_SIZE);
+            if (lseek(fd_, off, SEEK_SET) == -1) {
+                LogError("lseek error");
+            }
+            if (read(fd_, page->GetData(), PAGE_SIZE) == -1) {
+                LogError("read error");
+            }
             return page;
         }
     }
 
     void WritePage(size_t page_id, Page* p) {
         if (ENABLED_DISK_BUFFER) {
+            std::lock_guard<std::mutex> lock(buffer_mtx_);
+            p->SetUsed(false);
             Put(page_id, p);
         } else {
-            off_t off = (page_id + offset_) * PAGE_SIZE;
-            lseek(fd_, off, SEEK_SET);
-            write(fd_, p->GetData(), PAGE_SIZE);
+            if (p->CheckDirty()) {
+                off_t off = (page_id + offset_) * PAGE_SIZE;
+                if (lseek(fd_, off, SEEK_SET) == -1) {
+                    LogError("lseek error");
+                }
+                if (write(fd_, p->GetData(), PAGE_SIZE) == -1) {
+                    LogError("write error");
+                }
+            }
             delete p;
         }
     }
@@ -91,10 +103,18 @@ public:
         if (ENABLED_DISK_BUFFER) {
             std::lock_guard<std::mutex> lock(buffer_mtx_);
             for (auto &entry: cache_list_) {
-                off_t off = (entry.first + offset_) * PAGE_SIZE;
-                lseek(fd_, off, SEEK_SET);
-                write(fd_, entry.second->GetData(), PAGE_SIZE);
-                delete entry.second;
+                if (!entry.second->CheckUsed()) {
+                    if (!entry.second->CheckDirty()) {
+                        off_t off = (entry.first + offset_) * PAGE_SIZE;
+                        if (lseek(fd_, off, SEEK_SET) == -1) {
+                            LogError("lseek error");
+                        }
+                        if (write(fd_, entry.second->GetData(), PAGE_SIZE) == -1) {
+                            LogError("write error");
+                        }
+                    }
+                    delete entry.second;
+                }
             }
             cache_list_.clear();
             cache_map_.clear();
@@ -110,7 +130,7 @@ private:
     std::list<std::pair<size_t, Page*>> cache_list_;
     std::unordered_map<size_t, std::list<std::pair<size_t, Page*>>::iterator> cache_map_;
 
-    Page* Get(uint32_t page_id) {
+    Page* Get(size_t page_id) {
         auto iter = cache_map_.find(page_id);
         if (iter == cache_map_.end()) {
             return nullptr;
@@ -119,21 +139,26 @@ private:
         return iter->second->second;
     }
 
-    void Put(uint32_t page_id, Page* p) {
+    void Put(size_t page_id, Page* p) {
         auto iter = cache_map_.find(page_id);
         if (iter != cache_map_.end()) {
-            iter->second->second = p;
             cache_list_.splice(cache_list_.begin(), cache_list_, iter->second);
             return;
         }
         if (cache_map_.size() == capacity_) {
-            uint32_t last_page_id = cache_list_.back().first;
             Page* last_page = cache_list_.back().second;
-            off_t offset = last_page_id * PAGE_SIZE;
-            lseek(fd_, offset, SEEK_SET);
-            write(fd_, last_page->GetData(), PAGE_SIZE);
-            cache_list_.pop_back();
-            cache_map_.erase(last_page_id);
+            if (last_page->CheckDirty()) {
+                size_t last_page_id = cache_list_.back().first;
+                off_t off = (last_page_id + offset_) * PAGE_SIZE;
+                if (lseek(fd_, off, SEEK_SET) == -1) {
+                    LogError("lseek error");
+                }
+                if (write(fd_, last_page->GetData(), PAGE_SIZE) == -1) {
+                    LogError("read error");
+                }
+                cache_list_.pop_back();
+                cache_map_.erase(last_page_id);
+            }
             delete last_page;
         }
         cache_list_.emplace_front(page_id, p);
@@ -145,10 +170,18 @@ private:
             std::this_thread::sleep_for(std::chrono::seconds(DISK_FLUSH_TIME_INTERVAL));
             std::lock_guard<std::mutex> lock(buffer_mtx_);
             for (auto &entry: cache_list_) {
-                off_t off = (entry.first + offset_) * PAGE_SIZE;
-                lseek(fd_, off, SEEK_SET);
-                write(fd_, entry.second->GetData(), PAGE_SIZE);
-                delete entry.second;
+                if (!entry.second->CheckUsed()) {
+                    if (entry.second->CheckDirty()) {
+                        off_t off = (entry.first + offset_) * PAGE_SIZE;
+                        if (lseek(fd_, off, SEEK_SET) == -1) {
+                            LogError("lseek error");
+                        }
+                        if (write(fd_, entry.second->GetData(), PAGE_SIZE) == -1) {
+                            LogError("write error");
+                        }
+                    }
+                    delete entry.second;
+                }
             }
             cache_list_.clear();
             cache_map_.clear();

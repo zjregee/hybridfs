@@ -6,6 +6,12 @@
 
 namespace hybridfs {
 
+void SetLogLevel(spdlog::level::level_enum level) {
+    if (ENABLED_LOG) {
+        spdlog::set_level(level);
+    }
+}
+
 void LogDebug(const char* msg) {
     if (ENABLED_LOG) {
         spdlog::debug(msg);
