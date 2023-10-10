@@ -1,0 +1,1 @@
+dd if=/dev/zero of=sim_disk bs=1M count=2048

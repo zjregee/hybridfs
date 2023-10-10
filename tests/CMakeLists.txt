@@ -1,0 +1,6 @@
+# add_executable(common_test common_test.cpp)
+add_executable(murmur3_test murmur3_test.cpp)
+add_executable(disk_hash_table_test disk_hash_table_test.cpp)
+
+target_link_libraries(murmur3_test hybridfs)
+target_link_libraries(disk_hash_table_test hybridfs)

@@ -20,3 +20,5 @@ include_directories(${HYBRIDFS_SRC_INCLUDE_DIR} ${HYBRIDFS_THIRD_PARTY_INCLUDE_D
 
 add_subdirectory(src)
 add_subdirectory(third_party)
+add_subdirectory(tools)
+add_subdirectory(tests)

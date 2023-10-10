@@ -3,7 +3,6 @@
 namespace hybridfs {
 
 auto HashTableBucketPage::GetValue(std::string &key, std::string &value) -> bool {
-    fill_string_to_length(key, HASH_TABLE_BUCKET_KEY_SIZE);
     for (size_t i = 0; i < HASH_TABLE_BUCKET_ARRAY_SIZE; i++) {
         if (IsOccupied(i) && key.substr(0, HASH_TABLE_BUCKET_KEY_SIZE) == KeyAt(i)) {
             value = ValueAt(i);
@@ -14,8 +13,6 @@ auto HashTableBucketPage::GetValue(std::string &key, std::string &value) -> bool
 }
 
 auto HashTableBucketPage::Insert(std::string &key, std::string &value) -> bool {
-    fill_string_to_length(key, HASH_TABLE_BUCKET_KEY_SIZE);
-    fill_string_to_length(value, HASH_TABLE_BUCKET_VALUE_SIZE);
     for (size_t i = 0; i < HASH_TABLE_BUCKET_ARRAY_SIZE; i++) {
         if (IsOccupied(i) && key.substr(0, HASH_TABLE_BUCKET_KEY_SIZE) == KeyAt(i)) {
             memcpy(GetData() + HASH_TABLE_BUCKET_ENTRY_SIZE * i + HASH_TABLE_BUCKET_KEY_SIZE + HASH_TABLE_BUCKET_ARRAY_OFFSET, value.data(), HASH_TABLE_BUCKET_VALUE_SIZE);
@@ -34,7 +31,6 @@ auto HashTableBucketPage::Insert(std::string &key, std::string &value) -> bool {
 }
 
 auto HashTableBucketPage::Remove(std::string &key) -> bool {
-    fill_string_to_length(key, HASH_TABLE_BUCKET_KEY_SIZE);
     for (size_t i = 0; i < HASH_TABLE_BUCKET_ARRAY_SIZE; i++) {
         if (IsOccupied(i) && key.substr(0, HASH_TABLE_BUCKET_KEY_SIZE) == KeyAt(i)) {
             SetOccupied(i, false);

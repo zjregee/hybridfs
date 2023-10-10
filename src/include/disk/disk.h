@@ -5,25 +5,27 @@
 #include <mutex>
 #include <thread>
 #include <chrono>
+#include <fcntl.h>
+#include <unistd.h>
+#include <spdlog/spdlog.h>
 
 #include "common/defines.h"
 #include "common/consts.h"
-#include "utils/logger.h"
 #include "disk_page/page.h"
 
 namespace hybridfs {
 
 class Disk {
 public:
-    Disk(size_t offset, size_t page_num) {
+    Disk(size_t offset, size_t page_num, bool enabled_buffer) {
         offset_ = offset;
         page_num_ = page_num;
+        enabled_buffer_ = enabled_buffer;
         fd_ = open(METADATA_DISK.c_str(), O_RDWR);
         if (fd_ == -1) {
-            LogError("open error");
+            spdlog::error("open error");
         }
-        ResetDisk();
-        if (ENABLED_DISK_BUFFER) {
+        if (enabled_buffer_) {
             capacity_ = DISK_BUFFER_CAPACITY;
             std::thread t(&Disk::FlushTimingLoop, this);
             t.detach();
@@ -34,22 +36,8 @@ public:
         Flush();
     }
 
-    void ResetDisk() {
-        char buffer[PAGE_SIZE];
-        memset(buffer, 0, PAGE_SIZE);
-        for (size_t i = 0; i < page_num_; i++) {
-            off_t off = (i + offset_) * PAGE_SIZE;
-            if (lseek(fd_, off, SEEK_SET) == -1) {
-                LogError("lseek error");
-            }
-            if (write(fd_, buffer, PAGE_SIZE) == -1) {
-                LogError("write error");
-            }
-        }
-    }
-
     Page* ReadPage(size_t page_id) {
-        if (ENABLED_DISK_BUFFER) {
+        if (enabled_buffer_) {
             std::lock_guard<std::mutex> lock(buffer_mtx_);
             Page* page = Get(page_id);
             if (page != nullptr) {
@@ -59,10 +47,10 @@ public:
             page = new Page();
             off_t off = (page_id + offset_) * PAGE_SIZE;
             if (lseek(fd_, off, SEEK_SET) == -1) {
-                LogError("lseek error");
+                spdlog::error("lseek error");
             }
             if (read(fd_, page->GetData(), PAGE_SIZE) == -1) {
-                LogError("read error");
+                spdlog::error("read error");
             }
             Put(page_id, page);
             page->SetUsed(true);
@@ -71,17 +59,17 @@ public:
             Page* page = new Page();
             off_t off = (page_id + offset_) * PAGE_SIZE;
             if (lseek(fd_, off, SEEK_SET) == -1) {
-                LogError("lseek error");
+                spdlog::error("lseek error");
             }
             if (read(fd_, page->GetData(), PAGE_SIZE) == -1) {
-                LogError("read error");
+                spdlog::error("read error");
             }
             return page;
         }
     }
 
     void WritePage(size_t page_id, Page* p) {
-        if (ENABLED_DISK_BUFFER) {
+        if (enabled_buffer_) {
             std::lock_guard<std::mutex> lock(buffer_mtx_);
             p->SetUsed(false);
             Put(page_id, p);
@@ -89,10 +77,10 @@ public:
             if (p->CheckDirty()) {
                 off_t off = (page_id + offset_) * PAGE_SIZE;
                 if (lseek(fd_, off, SEEK_SET) == -1) {
-                    LogError("lseek error");
+                    spdlog::error("lseek error");
                 }
                 if (write(fd_, p->GetData(), PAGE_SIZE) == -1) {
-                    LogError("write error");
+                    spdlog::error("write error");
                 }
             }
             delete p;
@@ -100,17 +88,17 @@ public:
     }
 
     void Flush() {
-        if (ENABLED_DISK_BUFFER) {
+        if (enabled_buffer_) {
             std::lock_guard<std::mutex> lock(buffer_mtx_);
             for (auto &entry: cache_list_) {
                 if (!entry.second->CheckUsed()) {
                     if (!entry.second->CheckDirty()) {
                         off_t off = (entry.first + offset_) * PAGE_SIZE;
                         if (lseek(fd_, off, SEEK_SET) == -1) {
-                            LogError("lseek error");
+                            spdlog::error("lseek error");
                         }
                         if (write(fd_, entry.second->GetData(), PAGE_SIZE) == -1) {
-                            LogError("write error");
+                            spdlog::error("write error");
                         }
                     }
                     delete entry.second;
@@ -123,6 +111,7 @@ public:
 
 private:
     int fd_;
+    bool enabled_buffer_;
     size_t offset_;
     size_t page_num_;
     size_t capacity_;
@@ -151,10 +140,10 @@ private:
                 size_t last_page_id = cache_list_.back().first;
                 off_t off = (last_page_id + offset_) * PAGE_SIZE;
                 if (lseek(fd_, off, SEEK_SET) == -1) {
-                    LogError("lseek error");
+                    spdlog::error("lseek error");
                 }
                 if (write(fd_, last_page->GetData(), PAGE_SIZE) == -1) {
-                    LogError("read error");
+                    spdlog::error("read error");
                 }
                 cache_list_.pop_back();
                 cache_map_.erase(last_page_id);
@@ -166,7 +155,7 @@ private:
     }
 
     void FlushTimingLoop() {
-        while (this != nullptr) {
+        while (true) {
             std::this_thread::sleep_for(std::chrono::seconds(DISK_FLUSH_TIME_INTERVAL));
             std::lock_guard<std::mutex> lock(buffer_mtx_);
             for (auto &entry: cache_list_) {
@@ -174,10 +163,10 @@ private:
                     if (entry.second->CheckDirty()) {
                         off_t off = (entry.first + offset_) * PAGE_SIZE;
                         if (lseek(fd_, off, SEEK_SET) == -1) {
-                            LogError("lseek error");
+                            spdlog::error("lseek error");
                         }
                         if (write(fd_, entry.second->GetData(), PAGE_SIZE) == -1) {
-                            LogError("write error");
+                            spdlog::error("write error");
                         }
                     }
                     delete entry.second;
