@@ -2,68 +2,74 @@
 
 namespace hybridfs {
 
-auto HashTableDirectoryRegion::GetGlobalDepth() -> uint32_t {
-    auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_adaptor_->ReadPage(directory_page_id_));
-    return dir_page->GetGlobalDepth();
+uint32_t HashTableDirectoryRegion::GetGlobalDepth() {
+    HashTableDirectoryPage* dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_->ReadPage(directory_region_offset_));
+    uint32_t global_depth = dir_page->GetGlobalDepth();
+    disk_->PutBackPage(directory_region_offset_, dir_page);
+    return global_depth;
 }
 
 void HashTableDirectoryRegion::SetGlobalDepth(uint32_t global_depth) {
-    auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_adaptor_->ReadPage(directory_page_id_));
+    HashTableDirectoryPage* dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_->ReadPage(directory_region_offset_));
     dir_page->SetGlobalDepth(global_depth);
-    disk_adaptor_->WritePage(directory_page_id_, dir_page);
+    disk_->PutBackPage(directory_region_offset_, dir_page);
 }
 
 void HashTableDirectoryRegion::IncrGlobalDepth() {
-    auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_adaptor_->ReadPage(directory_page_id_));
+    HashTableDirectoryPage* dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_->ReadPage(directory_region_offset_));
     dir_page->IncrGlobalDepth();
-    disk_adaptor_->WritePage(directory_page_id_, dir_page);
+    disk_->PutBackPage(directory_region_offset_, dir_page);
 }
 
 void HashTableDirectoryRegion::DecrGlobalDepth() {
-    auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_adaptor_->ReadPage(directory_page_id_));
+    HashTableDirectoryPage* dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_->ReadPage(directory_region_offset_));
     dir_page->DecrGlobalDepth();
-    disk_adaptor_->WritePage(directory_page_id_, dir_page);
+    disk_->PutBackPage(directory_region_offset_, dir_page);
 }
 
-auto HashTableDirectoryRegion::GetLocalDepth(uint32_t bucket_idx) -> uint32_t {
-    uint32_t pos = bucket_idx / HASH_TABLE_DIRECTORY_ARRAY_SIZE;
-    uint32_t off = bucket_idx % HASH_TABLE_DIRECTORY_ARRAY_SIZE;
-    auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_adaptor_->ReadPage(directory_page_id_ + pos));
-    return dir_page->GetLocalDepth(off);
+uint32_t HashTableDirectoryRegion::GetLocalDepth(size_t bucket_idx) {
+    size_t pos = bucket_idx / HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+    size_t off = bucket_idx % HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+    HashTableDirectoryPage* dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_->ReadPage(directory_region_offset_ + pos));
+    uint32_t local_depth = dir_page->GetLocalDepth(off);
+    disk_->PutBackPage(directory_region_offset_ + pos, dir_page);
+    return local_depth;
 }
 
-void HashTableDirectoryRegion::SetLocalDepth(uint32_t bucket_idx, uint32_t local_depth) {
-    uint32_t pos = bucket_idx / HASH_TABLE_DIRECTORY_ARRAY_SIZE;
-    uint32_t off = bucket_idx % HASH_TABLE_DIRECTORY_ARRAY_SIZE;
-    auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_adaptor_->ReadPage(directory_page_id_ + pos));
+void HashTableDirectoryRegion::SetLocalDepth(size_t bucket_idx, uint32_t local_depth) {
+    size_t pos = bucket_idx / HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+    size_t off = bucket_idx % HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+    HashTableDirectoryPage* dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_->ReadPage(directory_region_offset_ + pos));
     dir_page->SetLocalDepth(off, local_depth);
-    disk_adaptor_->WritePage(directory_page_id_ + pos, dir_page);
+    disk_->PutBackPage(directory_region_offset_ + pos, dir_page);
 }
 
-auto HashTableDirectoryRegion::GetBucketPageId(uint32_t bucket_idx) -> uint32_t {
-    uint32_t pos = bucket_idx / HASH_TABLE_DIRECTORY_ARRAY_SIZE;
-    uint32_t off = bucket_idx % HASH_TABLE_DIRECTORY_ARRAY_SIZE;
-    auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_adaptor_->ReadPage(directory_page_id_ + pos));
-    return dir_page->GetBucketPageId(off);
+uint32_t HashTableDirectoryRegion::GetBucketPageId(size_t bucket_idx) {
+    size_t pos = bucket_idx / HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+    size_t off = bucket_idx % HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+    HashTableDirectoryPage* dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_->ReadPage(directory_region_offset_ + pos));
+    uint32_t bucke_page_id = dir_page->GetBucketPageId(off);
+    disk_->PutBackPage(directory_region_offset_ + pos, dir_page);
+    return bucke_page_id;
 }
 
-void HashTableDirectoryRegion::SetBucketPageId(uint32_t bucket_idx, uint32_t bucket_page_id) {
-    uint32_t pos = bucket_idx / HASH_TABLE_DIRECTORY_ARRAY_SIZE;
-    uint32_t off = bucket_idx % HASH_TABLE_DIRECTORY_ARRAY_SIZE;
-    auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_adaptor_->ReadPage(directory_page_id_ + pos));
+void HashTableDirectoryRegion::SetBucketPageId(size_t bucket_idx, uint32_t bucket_page_id) {
+    size_t pos = bucket_idx / HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+    size_t off = bucket_idx % HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+    HashTableDirectoryPage* dir_page = reinterpret_cast<HashTableDirectoryPage *>(disk_->ReadPage(directory_region_offset_ + pos));
     dir_page->SetBucketPageId(off, bucket_page_id);
-    disk_adaptor_->WritePage(directory_page_id_ + pos, dir_page);
+    disk_->PutBackPage(directory_region_offset_ + pos, dir_page);
 }
 
-auto HashTableDirectoryRegion::GetSplitImageIndex(uint32_t bucket_idx) -> uint32_t {
+uint32_t HashTableDirectoryRegion::GetSplitImageIndex(uint32_t bucket_idx) {
     return bucket_idx | (1 << GetLocalDepth(bucket_idx));
 }
 
-auto HashTableDirectoryRegion::GetGlobalDepthMask() -> uint32_t {
+uint32_t HashTableDirectoryRegion::GetGlobalDepthMask() {
     return (1 << GetGlobalDepth()) - 1;
 }
 
-auto HashTableDirectoryRegion::GetLocalDepthMask(uint32_t bucket_idx) -> uint32_t {
+uint32_t HashTableDirectoryRegion::GetLocalDepthMask(uint32_t bucket_idx) {
     return (1 << GetLocalDepth(bucket_idx)) - 1;
 }
 

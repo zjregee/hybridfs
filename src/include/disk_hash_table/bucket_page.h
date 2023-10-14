@@ -9,18 +9,17 @@ namespace hybridfs {
 
 class HashTableBucketPage: public Page {
 public:
-    auto GetValue(std::string &key, std::string &result) -> bool;
-    auto Insert(std::string &key, std::string &value) -> bool;
-    auto Remove(std::string &key) -> bool;
-    auto KeyAt(size_t bucket_idx) -> std::string;
-    auto ValueAt(size_t bucket_idx) -> std::string;
+    bool GetValue(const std::string &key, std::string &result);
+    bool Insert(const std::string &key, const std::string &value);
+    bool Remove(const std::string &key);
+    std::string KeyAt(size_t bucket_idx);
+    std::string ValueAt(size_t bucket_idx);
     void RemoveAt(size_t bucket_idx);
-    auto IsFull() -> bool;
-    auto IsEmpty() -> bool;
-    auto NumOccupied() -> size_t;
+    bool IsFull();
+    size_t NumOccupied();
 
 private:
-    auto IsOccupied(size_t bucket_idx) -> bool;
+    bool IsOccupied(size_t bucket_idx);
     void SetOccupied(size_t bucket_idx, bool occupied);
 };
 

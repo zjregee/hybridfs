@@ -1,6 +1,7 @@
 #pragma once
 
 #include <murmur3/MurmurHash3.h>
+#include <spdlog/spdlog.h>
 
 #include "common/consts.h"
 #include "disk/disk.h"
@@ -14,9 +15,9 @@ namespace hybridfs {
 class DiskExtendibleHashTable {
 public:
     DiskExtendibleHashTable() {
-        disk_ = new Disk(HASH_TABLE_REGION_OFFSET, HASH_TABLE_REGION_SIZE, ENABLED_DISK_BUFFER);
+        disk_ = new Disk(METADATA_DISK, HASH_TABLE_REGION_OFFSET, HASH_TABLE_REGION_SIZE, ENABLED_DISK_BUFFER);
         bitmap_ = new DiskBitmap(disk_, HASH_TABLE_BITMAP_OFFSET, HASH_TABLE_BITMAP_SIZE);
-        directory_region_ = new HashTableDirectoryRegion(disk_, HASH_TABLE_DIRECTORY_OFFSET, HASH_TABLE_DIRECTORY_SIZE);
+        directory_region_ = new HashTableDirectoryRegion(disk_, HASH_TABLE_DIRECTORY_REGION_OFFSET, HASH_TABLE_DIRECTORY_REGION_SIZE, HASH_TABLE_DIRECTORY_REGION_ARRAY_SIZE);
     }
 
     ~DiskExtendibleHashTable() {
@@ -25,18 +26,16 @@ public:
         delete directory_region_;
     }
 
-    auto Insert(std::string &key, std::string &value) -> bool;
-    auto GetValue(std::string &key, std::string &value) -> bool;
-    auto Remove(std::string &key) -> bool;
+    bool Insert(std::string &key, std::string &value);
+    bool GetValue(std::string &key, std::string &value);
+    bool Remove(std::string &key);
 
 private:
     Disk* disk_;
     DiskBitmap* bitmap_;
     HashTableDirectoryRegion* directory_region_;
-
-    auto FetchBucketPage(uint32_t bucket_page_id) -> HashTableBucketPage *;
-    auto WriteBucketPage(HashTableBucketPage * page, uint32_t bucket_page_id) -> bool;
-    auto NewPage() -> uint32_t;
+    
+    size_t NewPage();
 
     uint32_t Hash(const std::string &key) {
         return murmur3::MurmurHash3_x64_128(reinterpret_cast<const void *>(key.data()), HASH_TABLE_BUCKET_KEY_SIZE, 0);

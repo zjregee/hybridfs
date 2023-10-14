@@ -1,12 +1,8 @@
 #pragma once
 
-#include <spdlog/spdlog.h>
-
 namespace hybridfs {
 
-constexpr bool ENABLED_LOG = true;
-constexpr spdlog::level::level_enum LOG_EVEL = spdlog::level::info;
-constexpr bool ENABLED_DISK_BUFFER = false;
-const std::string METADATA_DISK = "/dev/nvme1n1";
+constexpr bool ENABLED_DISK_BUFFER = true;
+const std::string METADATA_DISK = "sim_disk";
 
 }

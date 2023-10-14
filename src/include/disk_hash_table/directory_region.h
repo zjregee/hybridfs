@@ -7,36 +7,31 @@ namespace hybridfs {
 
 class HashTableDirectoryRegion {
 public:
-    HashTableDirectoryRegion(Disk* disk_adaptor, size_t directory_page_id, size_t directory_region_size) {
-        disk_adaptor_ = disk_adaptor;
-        directory_page_id_ = directory_page_id;
+    HashTableDirectoryRegion(Disk* disk, size_t directory_region_offset, size_t directory_region_size, size_t directory_region_array_size) {
+        disk_ = disk;
+        directory_region_offset_ = directory_region_offset;
         directory_region_size_ = directory_region_size;
-        directory_region_array_size_ = directory_region_size * HASH_TABLE_DIRECTORY_ARRAY_SIZE;
+        directory_region_array_size_ = directory_region_array_size;
     }
 
     auto GetGlobalDepth() -> uint32_t;
     void SetGlobalDepth(uint32_t global_depth);
     void IncrGlobalDepth();
     void DecrGlobalDepth();
-
-    auto GetLocalDepth(uint32_t bucket_idx) -> uint32_t;
-    void SetLocalDepth(uint32_t bucket_idx, uint32_t local_depth);
-
-    auto GetBucketPageId(uint32_t bucket_idx) -> uint32_t;
-    void SetBucketPageId(uint32_t bucket_idx, uint32_t bucket_page_id);
-
-    auto GetSplitImageIndex(uint32_t bucket_idx) -> uint32_t;
-
-    auto GetGlobalDepthMask() -> uint32_t;
-    auto GetLocalDepthMask(uint32_t bucket_idx) -> uint32_t;
-
-    auto GetLocalHighBit(uint32_t bucket_idx) -> uint32_t;
-
-    auto GetSize() -> size_t { return directory_region_array_size_; }
+    uint32_t GetLocalDepth(size_t bucket_idx);
+    void SetLocalDepth(size_t bucket_idx, uint32_t local_depth);
+    uint32_t GetBucketPageId(size_t bucket_idx);
+    void SetBucketPageId(size_t bucket_idx, uint32_t bucket_page_id);
+    uint32_t GetSplitImageIndex(uint32_t bucket_idx);
+    uint32_t GetGlobalDepthMask();
+    uint32_t GetLocalDepthMask(uint32_t bucket_idx);
+    uint32_t GetLocalHighBit(uint32_t bucket_idx);
+    
+    size_t GetSize() { return directory_region_array_size_; }
 
 private:
-    Disk* disk_adaptor_;
-    size_t directory_page_id_;
+    Disk* disk_;
+    size_t directory_region_offset_;
     size_t directory_region_size_;
     size_t directory_region_array_size_;
 };

@@ -18,7 +18,7 @@ void DiskBitmap::SetOccupied(size_t page_id, bool occupied) {
     size_t raw_page_id = page_id % NUM_PAGES_IN_BITMAP;
     BitmapPage* bitmap = reinterpret_cast<BitmapPage *>(disk_->ReadPage(bitmap_offset_ + offset));
     bitmap->SetOccupied(raw_page_id, occupied);
-    disk_->WritePage(bitmap_offset_ + offset, bitmap);
+    disk_->PutBackPage(bitmap_offset_ + offset, bitmap);
 }
 
 }
