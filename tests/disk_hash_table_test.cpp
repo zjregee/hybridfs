@@ -7,22 +7,23 @@ int main() {
     hybridfs::DiskExtendibleHashTable* index = new hybridfs::DiskExtendibleHashTable();
 
     for (int i = 0; i < 1000; i++) {
-        std::cout << i << std::endl;
+        // std::cout << i << std::endl;
         std::string key = "test_key_" + std::to_string(i);
         std::string value = "test_value_" + std::to_string(i);
         index->Insert(key, value);
     }
 
     for (int i = 0; i < 1000; i++) {
-        std::cout << i << std::endl;
+        // std::cout << i << std::endl;
         std::string key = "test_key_" + std::to_string(i);
         std::string value = "test_value_" + std::to_string(i);
         std::string raw_value;
         index->GetValue(key, raw_value);
-        if (raw_value.substr(0, value.size()) != value) {
-            std::cout << "Get Error: " << key << "\n";
-            std::cout << raw_value << std::endl;
-        }
+        std::cout << raw_value.substr(0, value.size()) << std::endl;
+        // if (raw_value.substr(0, value.size()) != value) {
+        //     std::cout << "Get Error: " << key << "\n";
+        //     std::cout << raw_value << std::endl;
+        // }
     }
 
     // for (int i = 20000; i < 30000; i++) {

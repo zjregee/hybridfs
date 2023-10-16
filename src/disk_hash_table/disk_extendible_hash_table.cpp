@@ -37,35 +37,30 @@ bool DiskExtendibleHashTable::Insert(std::string &key, std::string &value) {
         uint32_t new_hash = Hash(new_key);
         uint32_t new_bucket_idx = new_hash & ((1 << local_depth) - 1);
         if (new_bucket_idx == split_bucket_idx) {
-            std::string new_value = bucket_page->ValueAt(i);
+            split_bucket_page->Insert(new_key, bucket_page->ValueAt(i));
             bucket_page->RemoveAt(i);
-            split_bucket_page->Insert(new_key, new_value);
         }
     }
-    bucket_idx = hash & ((1 << local_depth) - 1);
-    if (bucket_idx == bucket_page_id) {
-        bucket_page->Insert(key, value);
-    } else {
-        split_bucket_page->Insert(key, value);
-    }
     uint32_t diff = 1 << local_depth;
-    for (uint32_t i = bucket_idx; i <= directory_region_->GetSize(); i += diff) {
+    for (uint32_t i = bucket_idx; i < directory_region_->GetSize(); i += diff) {
         directory_region_->SetBucketPageId(i, bucket_page_id);
         directory_region_->SetLocalDepth(i, local_depth);
     }
-    for (uint32_t i = split_bucket_idx; i <= directory_region_->GetSize(); i += diff) {
+    for (uint32_t i = split_bucket_idx; i < directory_region_->GetSize(); i += diff) {
         directory_region_->SetBucketPageId(i, split_bucket_page_id);
         directory_region_->SetLocalDepth(i, local_depth);
     }
     disk_->PutBackPage(bucket_page_id, bucket_page);
     disk_->PutBackPage(split_bucket_page_id, split_bucket_page);
+    Insert(key, value);
     return true;
 }
 
 bool DiskExtendibleHashTable::GetValue(std::string &key, std::string &value) {
     fill_string_to_length(key, HASH_TABLE_BUCKET_KEY_SIZE);
     uint32_t hash = Hash(key);
-    uint32_t bucket_idx = hash & directory_region_->GetGlobalDepthMask();
+    uint32_t raw_bucket_idx = hash & directory_region_->GetGlobalDepthMask();
+    uint32_t bucket_idx = raw_bucket_idx & directory_region_->GetLocalDepthMask(raw_bucket_idx);
     size_t bucket_page_id = directory_region_->GetBucketPageId(bucket_idx);
     HashTableBucketPage* bucket_page = reinterpret_cast<HashTableBucketPage *>(disk_->ReadPage(bucket_page_id));
     bool flag = bucket_page->GetValue(key, value);
@@ -76,7 +71,8 @@ bool DiskExtendibleHashTable::GetValue(std::string &key, std::string &value) {
 bool DiskExtendibleHashTable::Remove(std::string &key) {
     fill_string_to_length(key, HASH_TABLE_BUCKET_KEY_SIZE);
     uint32_t hash = Hash(key);
-    uint32_t bucket_idx = hash & directory_region_->GetGlobalDepthMask();
+    uint32_t raw_bucket_idx = hash & directory_region_->GetGlobalDepthMask();
+    uint32_t bucket_idx = raw_bucket_idx & directory_region_->GetLocalDepthMask(raw_bucket_idx);
     size_t bucket_page_id = directory_region_->GetBucketPageId(bucket_idx);
     HashTableBucketPage* bucket_page = reinterpret_cast<HashTableBucketPage *>(disk_->ReadPage(bucket_page_id));
     bool flag = bucket_page->Remove(key);

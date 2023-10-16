@@ -1,0 +1,3 @@
+add_executable(disk_hash_table_bench disk_hash_table_bench.cpp)
+
+target_link_libraries(disk_hash_table_bench hybridfs)

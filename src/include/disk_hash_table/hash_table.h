@@ -17,6 +17,10 @@ public:
         disk_hash_table_ = new DiskExtendibleHashTable();
     }
 
+    ~HashTable() {
+        delete disk_hash_table_;
+    }
+
     void Insert(std::string &key, std::string &value) {
         std::lock_guard<std::mutex> lock(mtx_);
         Put(key, value);
